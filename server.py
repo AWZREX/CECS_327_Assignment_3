@@ -1,12 +1,13 @@
 import json
 import multiprocessing
 import socket
+import threading
 import uuid
 
 HOST = "localhost"
 
 
-def apply_operation(store, delivered_log, operation, update_id):
+def apply_operation(store, delivered_log, operation, update_id, replica_id):
     op = operation["op"]
     key = operation["key"]
 
@@ -18,7 +19,7 @@ def apply_operation(store, delivered_log, operation, update_id):
         store[key] = store.get(key, 0) + 1
 
     delivered_log.append(update_id)
-    print(f"  [DELIVERED] update_id={update_id} op={operation} store={store}")
+    print(f"  [DELIVERED] update_id={update_id} op={operation} store={store} replica_id={replica_id}")
 
 
 def _broadcast(msg, my_id, num_replicas):
@@ -80,7 +81,7 @@ def replica(replica_id, num_replicas):
                         "type": "ACK",
                         "update_id": data["update_id"],
                         "timestamp": data["timestamp"],
-                        "sender": data["sender"],
+                        "sender": replica_id,
                     }
                     _broadcast(ack, replica_id, num_replicas)
 
@@ -90,9 +91,9 @@ def replica(replica_id, num_replicas):
                 # Delivery loop
                 while holdback_queue:
                     ts, sender, msg = holdback_queue[0]
-                    if all(progress[k] > ts for k in range(num_replicas)):
+                    if all(progress[k] >= ts for k in range(num_replicas)):
                         holdback_queue.pop(0)
-                        apply_operation(store, delivered_log, msg["operation"], msg["update_id"])
+                        apply_operation(store, delivered_log, msg["operation"], msg["update_id"], replica_id)
                     else:
                         break
 
