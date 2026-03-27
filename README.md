@@ -36,22 +36,22 @@ Each replica listens on port `5000 + replica_id` (e.g., R0 → 5000, R1 → 5001
 
 ### Start replicas manually
 
-```bash
+
 python server.py 3
-```
+
 
 Starts `N` replicas (default 3) as separate processes. Each replica prints its port and logs every message received and delivered. Press `Ctrl+C` to stop all replicas.
 
 ### Send updates via CLI (while replicas are running)
 
-```bash
-# Open separate terminals for each command, or run sequentially:
-python client.py 0 put    key1 hello
-python client.py 1 append key1 _world
-python client.py 2 incr   counter
-```
 
-**Usage:** `python client.py <replica_id> <op> <key> [value]`
+Open separate terminals for each command, or run sequentially:<br>
+python client.py 0 put    key1 hello <br>
+python client.py 1 append key1 _world <br>
+python client.py 2 incr   counter <br>
+
+
+**Usage:** python client.py <replica_id> <op> <key> [value]
 
 **Supported operations:**
 
@@ -66,9 +66,9 @@ The client connects to `localhost:5000 + replica_id`, sends a `REQUEST` message,
 
 ### Run the test harness (Part B)
 
-```bash
+
 python test_harness.py
-```
+
 
 The harness starts and stops its own replicas for each experiment — no need to run `server.py` separately. It launches `NUM_REPLICAS = 3` replicas, sends concurrent operations with randomised delays, waits for delivery to complete, then terminates the replicas and prints a log of what was sent.
 
