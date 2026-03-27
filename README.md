@@ -29,7 +29,7 @@ Each replica listens on port `5000 + replica_id` (e.g., R0 → 5000, R1 → 5001
 | `server.py` | Replica server — Lamport clocks, TOBCAST/ACK protocol, holdback queue, delivery loop |
 | `client.py` | CLI client — sends a single UPDATE to a chosen replica |
 | `test_harness.py` | Part B — launches replicas, fires concurrent operations, verifies consistency |
-| `part_c_answers.md` | Part C — written answers |
+
 
 
 ## How to Run
