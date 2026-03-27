@@ -31,7 +31,6 @@ Each replica listens on port `5000 + replica_id` (e.g., R0 → 5000, R1 → 5001
 | `test_harness.py` | Part B — launches replicas, fires concurrent operations, verifies consistency |
 | `part_c_answers.md` | Part C — written answers |
 
----
 
 ## How to Run
 
@@ -73,7 +72,6 @@ python test_harness.py
 
 The harness starts and stops its own replicas for each experiment — no need to run `server.py` separately. It launches `NUM_REPLICAS = 3` replicas, sends concurrent operations with randomised delays, waits for delivery to complete, then terminates the replicas and prints a log of what was sent.
 
----
 
 ## Part A — Protocol Details
 
