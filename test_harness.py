@@ -80,7 +80,11 @@ if __name__ == "__main__":
     run_experiment(
         "High contention (20 increments to same key)",
         [
-            (i % NUM_REPLICAS, {"op": "incr", "key": "counter", "value": None}, random.uniform(0, 0.3))
+            (i % NUM_REPLICAS,
+             {"op": "incr", "key": "counter"} if i % 2 == 0
+             else {"op": "mult", "key": "counter", "value": 2},
+             #random.uniform(0, 0.3))
+             0)
             for i in range(20)
         ],
     )

@@ -1,7 +1,6 @@
 import json
 import multiprocessing
 import socket
-import threading
 import uuid
 
 HOST = "localhost"
@@ -17,6 +16,8 @@ def apply_operation(store, delivered_log, operation, update_id, replica_id):
         store[key] = store.get(key, "") + operation["value"]
     elif op == "incr":
         store[key] = store.get(key, 0) + 1
+    elif op == "mult":
+        store[key] = store.get(key, 0) * operation["value"]
 
     delivered_log.append(update_id)
     print(f"  [DELIVERED] update_id={update_id} op={operation} store={store} replica_id={replica_id}")
@@ -34,13 +35,14 @@ def _broadcast(msg, my_id, num_replicas):
 
 
 def replica(replica_id, num_replicas):
-    holdback_queue = []
+    holdback_queue = {}
     clock_i = 0
     progress = [0] * num_replicas
     store = {}
     delivered_log = []
+    ack_cache = []
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    with (socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, 5000 + replica_id))
         s.listen()
@@ -69,30 +71,49 @@ def replica(replica_id, num_replicas):
                         "timestamp": clock_i,
                         "sender": replica_id,
                     }
-                    holdback_queue.append((msg["timestamp"], msg["sender"], msg))
-                    holdback_queue.sort(key=lambda x: (x[0], x[1]))
+                    holdback_queue[msg["update_id"]] = (msg["timestamp"], msg["sender"], msg, {replica_id})
                     _broadcast(msg, replica_id, num_replicas)
 
                 elif data["type"] == "TOBCAST":
-                    holdback_queue.append((data["timestamp"], data["sender"], data))
-                    holdback_queue.sort(key=lambda x: (x[0], x[1]))
+                    holdback_queue[data["update_id"]] = (data["timestamp"], data["sender"], data, {replica_id})
                     progress[data["sender"]] = max(progress[data["sender"]], data["timestamp"])
                     ack = {
                         "type": "ACK",
                         "update_id": data["update_id"],
-                        "timestamp": data["timestamp"],
+                        "timestamp": clock_i,
                         "sender": replica_id,
                     }
                     _broadcast(ack, replica_id, num_replicas)
 
                 elif data["type"] == "ACK":
                     progress[data["sender"]] = max(progress[data["sender"]], data["timestamp"])
+                    try:
+                        ts, sender, msg, ack_set = holdback_queue[data["update_id"]]
+                        ack_set.add(data["sender"])
+                        holdback_queue[data["update_id"]] = (ts, sender, msg, ack_set)
+                    except KeyError:
+                        ack_cache.append(data)
+
+                for ack in ack_cache[:]:
+                    try:
+                        ts, sender, msg, ack_set = holdback_queue[ack["update_id"]]
+                        ack_set.add(ack["sender"])
+                        holdback_queue[ack["update_id"]] = (ts, sender, msg, ack_set)
+                        ack_cache.remove(ack)
+                    except KeyError:
+                        pass
 
                 # Delivery loop
                 while holdback_queue:
-                    ts, sender, msg = holdback_queue[0]
-                    if all(progress[k] >= ts for k in range(num_replicas)):
-                        holdback_queue.pop(0)
+                    sorted_items = sorted(
+                        holdback_queue.items(),
+                        key=lambda item: (item[1][0], item[1][1])  # (timestamp, sender)
+                    )
+
+                    update_id, (ts, sender, msg, ack_set) = sorted_items[0]
+
+                    if all(progress[k] >= ts for k in range(num_replicas)):# and len(ack_set) == num_replicas:
+                        holdback_queue.pop(update_id)
                         apply_operation(store, delivered_log, msg["operation"], msg["update_id"], replica_id)
                     else:
                         break
